@@ -36,16 +36,32 @@ app.post('/api/users/:_id/exercises', (req, res) => {
   const duration = req.body.duration
   let date = req.body.date
 
+  if (!des || !duration) {
+    console.log('No des or duration')
+    return res.json({ error: 'Description and duration are required' });
+  }
+
   if (!date) {
     date = new Date()
   }
   else {
-    date = new Date(date)
+    date = new Date(`${date}T00:00:00`)
   }
 
-  const exercises = {'duration': duration, 'description': des, 'date': date.toDateString()}
+  if (isNaN(date.getTime())) {
+    console.log('Invalid date')
+    return res.json({ error: 'Invalid date' });
+  }
 
-  const user_obj = users.filter(data => data._id === id)
+  const exercises = {'description': String(des), 'duration': Number(duration), 'date': String(date.toDateString())}
+
+  // console.log(exercises)
+
+  const user_obj = users.find(data => data._id === id)
+
+  if (!user_obj) {
+    return res.json({ error: 'User not found' });
+  }
 
   if (!logs[id]) {
     logs[id] = []
@@ -53,12 +69,19 @@ app.post('/api/users/:_id/exercises', (req, res) => {
 
   logs[id].push({...exercises})
   
-  res.json({...user_obj, ...exercises})
+  const username = user_obj['username']
+  const new_id = user_obj['_id']
+
+  const obj = {'username': String(username), 'description': String(des), 'duration': Number(duration), 'date': String(date.toDateString()), '_id': String(new_id)}
+
+  // console.log(obj)
+  
+  return res.json(obj)
 })
 
 app.get('/api/users/:_id/logs', (req, res) => {
   const id = req.params._id
-  const user = users.filter(data => data._id === id )
+  const user = users.find(data => data._id === id )
   const from = req.query.from
   const to = req.query.to
   const limit = req.query.limit
@@ -69,21 +92,43 @@ app.get('/api/users/:_id/logs', (req, res) => {
   }
 
   const log_obj = logs[id]
-  let log_length = Number(log_obj.length)
 
-  if (from && to) {
-    const filteredDates = log_obj.filter(date => isDateBetween(date.date, new Date(from), new Date(to)));
+  let log_length
+  if (log_obj) {
+    log_length = Number(log_obj.length)
+  }
+  else {
+    res.json({...user, count: 0, log: []})
+  }
+
+  let filteredDates;
+  if (from) {
+    if (to) {
+      filteredDates = log_obj.filter(date => isDateBetween(date.date, new Date(from), new Date(to)));
+    }
+    else {
+      filteredDates = log_obj.filter(date => isDateBetween(date.date, new Date(from), new Date()));
+    }
+
     log_length = Number(filteredDates.length)
-    
+
     const limitedDates = filteredDates.slice(0, Number(limit))
+    
+    const log = {...user, from: from, to: to, count: log_length, log: limit ? limitedDates : filteredDates}
 
-    const log = {...user, count: log_length, log: limit ? limitedDates : filteredDates}
+    return res.json(log)
+  }
 
-    res.json(log)
+  if (limit && !from) {
+    const limitedDates = log_obj.slice(0, Number(limit))
+
+    const log = {...user, from: from, to: to, count: log_length, log: limitedDates}
+
+    return res.json(log)
   }
 
   else {
-    res.json({...user, count: log_length, log: log_obj})
+    return res.json({...user, count: log_length, log: log_obj})
   }
 
 })
