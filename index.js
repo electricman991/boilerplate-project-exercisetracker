@@ -55,8 +55,6 @@ app.post('/api/users/:_id/exercises', (req, res) => {
 
   const exercises = {'description': String(des), 'duration': Number(duration), 'date': String(date.toDateString())}
 
-  // console.log(exercises)
-
   const user_obj = users.find(data => data._id === id)
 
   if (!user_obj) {
@@ -72,9 +70,7 @@ app.post('/api/users/:_id/exercises', (req, res) => {
   const username = user_obj['username']
   const new_id = user_obj['_id']
 
-  const obj = {'username': String(username), 'description': String(des), 'duration': Number(duration), 'date': String(date.toDateString()), '_id': String(new_id)}
-
-  // console.log(obj)
+  const obj = {'username': String(username), ...exercises, '_id': String(new_id)}
   
   return res.json(obj)
 })
@@ -87,7 +83,7 @@ app.get('/api/users/:_id/logs', (req, res) => {
   const limit = req.query.limit
 
   function isDateBetween(date, start, end) {
-    const currentDate = new Date(date);
+    const currentDate = new Date(`${date}`);
     return currentDate >= start && currentDate <= end;
   }
 
@@ -104,17 +100,17 @@ app.get('/api/users/:_id/logs', (req, res) => {
   let filteredDates;
   if (from) {
     if (to) {
-      filteredDates = log_obj.filter(date => isDateBetween(date.date, new Date(from), new Date(to)));
+      filteredDates = log_obj.filter(date => isDateBetween(date.date, new Date(`${from}T00:00:00`), new Date(`${to}T00:00:00`)));
     }
     else {
-      filteredDates = log_obj.filter(date => isDateBetween(date.date, new Date(from), new Date()));
+      filteredDates = log_obj.filter(date => isDateBetween(date.date, new Date(`${from}T00:00:00`), new Date()));
     }
 
     log_length = Number(filteredDates.length)
 
     const limitedDates = filteredDates.slice(0, Number(limit))
     
-    const log = {...user, from: from, to: to, count: log_length, log: limit ? limitedDates : filteredDates}
+    const log = {...user, from: new Date(`${from}T00:00:00`).toDateString(), to: new Date(`${to}T00:00:00`).toDateString(), count: log_length, log: limit ? limitedDates : filteredDates}
 
     return res.json(log)
   }
@@ -122,7 +118,7 @@ app.get('/api/users/:_id/logs', (req, res) => {
   if (limit && !from) {
     const limitedDates = log_obj.slice(0, Number(limit))
 
-    const log = {...user, from: from, to: to, count: log_length, log: limitedDates}
+    const log = {...user, count: log_length, log: limitedDates}
 
     return res.json(log)
   }
